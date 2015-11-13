@@ -1,3 +1,5 @@
+#![feature(convert, slice_bytes, clone_from_slice)]
+
 extern crate ladspa;
 extern crate mio;
 
@@ -6,6 +8,7 @@ mod transmit;
 
 use std::default::Default;
 use std::mem;
+use std::slice::{self, bytes};
 
 use ladspa::{Port, PortDescriptor};
 use ladspa::{PluginDescriptor};
@@ -23,29 +26,87 @@ const BASE_PORT: u16 = 21300;
 
 struct Packet {
     position: usize,
-    data: [(Data, Data); BUFFER_SIZE],
+    ldata: [Data; BUFFER_SIZE],
+    rdata: [Data; BUFFER_SIZE],
 }
 
 impl Packet {
     fn parse(bytes: [u8; BYTE_BUFFER_SIZE]) -> Packet {
-        Packet {
+        let mut packet = Packet {
             position: 0,
-            data: unsafe { mem::transmute(bytes) },
-        }
+            ldata: [0_f32; BUFFER_SIZE],
+            rdata: [0_f32; BUFFER_SIZE],
+        };
+        bytes::copy_memory(&bytes[..BYTE_BUFFER_SIZE/2], unsafe {
+            slice::from_raw_parts_mut(mem::transmute(packet.ldata.as_mut_ptr()), BYTE_BUFFER_SIZE/2) });
+        bytes::copy_memory(&bytes[BYTE_BUFFER_SIZE/2..], unsafe {
+            slice::from_raw_parts_mut(mem::transmute(packet.rdata.as_mut_ptr()), BYTE_BUFFER_SIZE/2) });
+
+        packet
+    }
+
+    fn new(ldata: &[Data], rdata: &[Data]) -> Packet {
+        assert_eq!(ldata.len(), BUFFER_SIZE);
+        assert_eq!(rdata.len(), BUFFER_SIZE);
+
+        let mut packet = Packet {
+            position: 0,
+            ldata: [0_f32; BUFFER_SIZE],
+            rdata: [0_f32; BUFFER_SIZE],
+        };
+        (&mut packet.ldata[..]).clone_from_slice(ldata);
+        (&mut packet.rdata[..]).clone_from_slice(rdata);
+
+        packet
+    }
+
+    fn as_bytes(&self) -> [u8; BYTE_BUFFER_SIZE] {
+        let mut bytes = [0; BYTE_BUFFER_SIZE];
+
+        bytes::copy_memory(unsafe {
+            slice::from_raw_parts_mut(mem::transmute(self.ldata.as_ptr()), BYTE_BUFFER_SIZE/2) },
+            &mut bytes[..BYTE_BUFFER_SIZE/2]);
+        bytes::copy_memory(unsafe {
+            slice::from_raw_parts_mut(mem::transmute(self.rdata.as_ptr()), BYTE_BUFFER_SIZE/2) },
+            &mut bytes[BYTE_BUFFER_SIZE/2..]);
+
+        bytes
+    }
+
+    fn get_ldata(&self) -> &[Data] {
+        &self.ldata[..]
+    }
+
+    fn get_rdata(&self) -> &[Data] {
+        &self.rdata[..]
     }
 
     fn read(&mut self) -> (Data, Data) {
         if self.position >= BUFFER_SIZE {
             return (0_f32, 0_f32);
         }
-        let data = self.data[self.position];
+        let ldata = self.ldata[self.position];
+        let rdata = self.rdata[self.position];
         self.position += 1;
-        data
+        (ldata, rdata)
     }
 
     fn active(&self) -> bool {
         self.position < BUFFER_SIZE
     }
+}
+
+#[test]
+fn test_packet() {
+    let ldata = vec![1.0; BUFFER_SIZE];
+    let rdata = vec![2.0; BUFFER_SIZE];
+    let new = Packet::new(&ldata, &rdata);
+    assert_eq!(new.get_ldata(), ldata.as_slice());
+    assert_eq!(new.get_rdata(), rdata.as_slice());
+    let parsed = Packet::parse(new.as_bytes());
+    assert_eq!(parsed.get_ldata(), ldata.as_slice());
+    assert_eq!(parsed.get_rdata(), rdata.as_slice());
+    assert_eq!(&new.as_bytes()[..], &parsed.as_bytes()[..]);
 }
 
 #[no_mangle]
