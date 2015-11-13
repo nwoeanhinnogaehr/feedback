@@ -18,6 +18,7 @@ use ladspa::{DefaultValue};
 use ladspa::Data;
 
 const BUFFER_SIZE: usize = 1024;
+const BYTE_BUFFER_SIZE: usize = BUFFER_SIZE*8;
 const BASE_PORT: u16 = 21300;
 
 const SERVER: Token = Token(0);
@@ -25,20 +26,20 @@ const CLIENT: Token = Token(1);
 
 struct Packet {
     position: usize,
-    data: [Data; BUFFER_SIZE],
+    data: [(Data, Data); BUFFER_SIZE],
 }
 
 impl Packet {
-    pub fn parse(bytes: [u8; BUFFER_SIZE*4]) -> Packet {
+    pub fn parse(bytes: [u8; BYTE_BUFFER_SIZE]) -> Packet {
         Packet {
             position: 0,
             data: unsafe { mem::transmute(bytes) },
         }
     }
 
-    pub fn read(&mut self) -> Data {
+    pub fn read(&mut self) -> (Data, Data) {
         if self.position >= BUFFER_SIZE {
-            return 0_f32;
+            return (0_f32, 0_f32);
         }
         let data = self.data[self.position];
         self.position += 1;
@@ -187,9 +188,9 @@ impl Plugin for Receiver {
             outputl[i] = inputl[i];
             outputr[i] = inputr[i];
             if let Some(mut packet) = self.active_packets.first_mut() {
-                let val = packet.read();
-                outputl[i] += val;
-                outputr[i] += val;
+                let (l, r) = packet.read();
+                outputl[i] += l;
+                outputr[i] += r;
             }
         }
 
@@ -226,7 +227,7 @@ impl Handler for PacketReceiver {
                 match self.server.accept() {
                     Ok(Some(mut socket)) => {
                         let tx = self.data_tx.clone();
-                        let mut buf = [0; BUFFER_SIZE*4];
+                        let mut buf = [0; BYTE_BUFFER_SIZE];
                         let mut buf_pos = 0;
                         loop {
                             let res = socket.read(&mut buf[buf_pos..]);
@@ -239,7 +240,7 @@ impl Handler for PacketReceiver {
 
                                     // check if we've filled the buffer
                                     buf_pos += num_read;
-                                    if buf_pos != BUFFER_SIZE*4 {
+                                    if buf_pos != BYTE_BUFFER_SIZE {
                                         continue;
                                     }
                                     buf_pos = 0;
