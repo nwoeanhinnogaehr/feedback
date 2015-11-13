@@ -1,0 +1,12 @@
+[package]
+name = "feedback"
+version = "0.1.0"
+authors = ["Noah Weninger <nweninge@ualberta.ca>"]
+
+[dependencies]
+ladspa = "*"
+mio = "0.4.4"
+
+[lib]
+name = "feedback"
+crate-type = ["dylib"]
