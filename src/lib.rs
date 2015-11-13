@@ -223,15 +223,23 @@ impl Handler for PacketReceiver {
                 match self.server.accept() {
                     Ok(Some(mut socket)) => {
                         let tx = self.data_tx.clone();
+                        let mut buf = [0; BUFFER_SIZE*4];
+                        let mut buf_pos = 0;
                         loop {
-                            let mut bytes = [0; BUFFER_SIZE*4];
-                            let res = socket.read(&mut bytes);
+                            let res = socket.read(&mut buf[buf_pos..]);
                             match res {
-                                Ok(size) => {
-                                    if size == 0 {
-                                        println!("zero buffer");
+                                Ok(num_read) => {
+                                    // if we got a length zero read, the connection is done.
+                                    if num_read == 0 {
                                         return;
                                     }
+
+                                    // check if we've filled the buffer
+                                    buf_pos += num_read;
+                                    if buf_pos != BUFFER_SIZE*4 {
+                                        continue;
+                                    }
+                                    buf_pos = 0;
                                 }
                                 Err(e) => {
                                     if e.kind() == ErrorKind::WouldBlock {
@@ -240,7 +248,7 @@ impl Handler for PacketReceiver {
                                     panic!(e);
                                 }
                             }
-                            let packet = Packet::parse(bytes);
+                            let packet = Packet::parse(buf);
                             tx.send(packet).unwrap();
                             println!("recv data!");
                         }
