@@ -5,7 +5,7 @@ use std::default::Default;
 use std::thread;
 use std::sync::mpsc::{self, sync_channel};
 use std::mem;
-use std::io::Read;
+use std::io::{Read, ErrorKind};
 
 use mio::*;
 use mio::tcp::{TcpStream, TcpListener};
@@ -82,8 +82,8 @@ impl Plugin for Transmitter {
         let channel = *ports[4].unwrap_control() as u16;
 
         if channel != self.channel {
-            println!("set channel {}", self.channel);
             self.channel = channel;
+            println!("set channel {}", self.channel);
             self.kill_client();
             self.init_client();
         }
@@ -160,8 +160,8 @@ impl Plugin for Receiver {
         let channel = *ports[4].unwrap_control() as u16;
 
         if channel != self.channel {
-            println!("set channel {}", self.channel);
             self.channel = channel;
+            println!("set channel {}", self.channel);
             self.kill_server();
             self.init_server();
         }
@@ -234,7 +234,7 @@ impl Handler for PacketReceiver {
                                     }
                                 }
                                 Err(e) => {
-                                    if let Some(11) = e.raw_os_error() {
+                                    if e.kind() == ErrorKind::WouldBlock {
                                         continue;
                                     }
                                     panic!(e);
