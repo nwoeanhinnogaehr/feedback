@@ -52,19 +52,59 @@ impl Packet {
 
 struct Transmitter {
     sample_rate: u64,
+    channel: u16,
 }
 
 impl Transmitter {
     pub fn new(desc: &PluginDescriptor, sample_rate: u64) -> Box<Plugin + Send> {
         Box::new(Transmitter {
-            sample_rate: sample_rate
+            sample_rate: sample_rate,
+            channel: 0,
         })
+    }
+
+    fn init_client(&mut self) {
+        //TODO
+    }
+
+    fn kill_client(&mut self) {
+        //TODO
     }
 }
 
 impl Plugin for Transmitter {
     fn run<'a>(&mut self, sample_count: usize, ports: &[&'a PortConnection<'a>]) {
+        let inputl = ports[0].unwrap_audio();
+        let inputr = ports[1].unwrap_audio();
+        let mut outputl = ports[2].unwrap_audio_mut();
+        let mut outputr = ports[3].unwrap_audio_mut();
+
+        let channel = *ports[4].unwrap_control() as u16;
+
+        if channel != self.channel {
+            println!("set channel {}", self.channel);
+            self.channel = channel;
+            self.kill_client();
+            self.init_client();
+        }
+
+        //TODO
     }
+
+    fn activate(&mut self) {
+        println!("activate {}", self.channel);
+        self.init_client();
+    }
+
+    fn deactivate(&mut self) {
+        println!("deactivate {}", self.channel);
+        self.kill_client();
+    }
+}
+
+struct PacketTransmitter {
+    socket: TcpStream,
+    //TODO
 }
 
 struct Receiver {
@@ -120,6 +160,7 @@ impl Plugin for Receiver {
         let channel = *ports[4].unwrap_control() as u16;
 
         if channel != self.channel {
+            println!("set channel {}", self.channel);
             self.channel = channel;
             self.kill_server();
             self.init_server();
@@ -212,7 +253,7 @@ impl Handler for PacketReceiver {
                         event_loop.shutdown();
                     }
                 }
-            }
+            },
             _ => panic!("Received unknown token"),
         }
     }
@@ -233,12 +274,22 @@ pub extern fn get_ladspa_descriptor(index: u64) -> Option<PluginDescriptor> {
             copyright: "None",
             ports: vec![
                 Port {
-                    name: "Audio In",
+                    name: "Left Audio In",
                     desc: PortDescriptor::AudioInput,
                     ..Default::default()
                 },
                 Port {
-                    name: "Audio Out",
+                    name: "Right Audio In",
+                    desc: PortDescriptor::AudioInput,
+                    ..Default::default()
+                },
+                Port {
+                    name: "Left Audio Out",
+                    desc: PortDescriptor::AudioOutput,
+                    ..Default::default()
+                },
+                Port {
+                    name: "Right Audio Out",
                     desc: PortDescriptor::AudioOutput,
                     ..Default::default()
                 },
