@@ -172,6 +172,9 @@ impl Plugin for Receiver {
         };
 
         loop {
+            if self.active_packets.len() > 128 {
+                break;
+            }
             let packet = match recv.try_recv() {
                 Ok(packet) => packet,
                 Err(_) => break,
@@ -183,7 +186,7 @@ impl Plugin for Receiver {
         for i in 0..sample_count {
             outputl[i] = inputl[i];
             outputr[i] = inputr[i];
-            for packet in self.active_packets.iter_mut() {
+            if let Some(mut packet) = self.active_packets.first_mut() {
                 let val = packet.read();
                 outputl[i] += val;
                 outputr[i] += val;
