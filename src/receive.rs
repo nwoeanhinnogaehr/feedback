@@ -1,5 +1,5 @@
 use std::thread;
-use std::sync::mpsc::{self, sync_channel};
+use std::sync::mpsc::{self, sync_channel, TryRecvError};
 use std::io::{Read, ErrorKind};
 
 use mio::*;
@@ -41,7 +41,16 @@ impl Receiver {
         self.notify_tx = Some(event_loop.channel());
         thread::spawn(move || {
             let addr = format!("127.0.0.1:{}", BASE_PORT + channel).parse().unwrap();
-            let server = TcpListener::bind(&addr).unwrap();
+            let server;
+            loop {
+                match TcpListener::bind(&addr) {
+                    Ok(s) => {
+                        server = s;
+                        break;
+                    },
+                    Err(_) => { },
+                }
+            }
             event_loop.register(&server, SERVER).unwrap();
             event_loop.run(&mut PacketReceiver {
                 server: server,
@@ -71,21 +80,23 @@ impl Plugin for Receiver {
             self.init_server();
         }
 
-        let recv = match self.packet_rx.as_ref() {
-            Some(rx) => rx,
-            None => panic!("packet_rx is None!"),
-        };
-
         loop {
             if self.active_packets.len() > 128 {
                 break;
             }
-            let packet = match recv.try_recv() {
+            let packet = match self.packet_rx.as_ref().unwrap().try_recv() {
                 Ok(packet) => packet,
-                Err(_) => break,
+                Err(TryRecvError::Disconnected) => {
+                    println!("ladspa packet receive failed, dead channel!");
+                    self.kill_server();
+                    self.init_server();
+                    break;
+                },
+                Err(TryRecvError::Empty) => {
+                    break;
+                }
             };
             self.active_packets.push(packet);
-            println!("have data!");
         }
 
         for i in 0..sample_count {
@@ -139,6 +150,7 @@ impl Handler for PacketReceiver {
                                 Ok(num_read) => {
                                     // if we got a length zero read, the connection is done.
                                     if num_read == 0 {
+                                        println!("read zero bytes");
                                         return;
                                     }
 
@@ -157,8 +169,10 @@ impl Handler for PacketReceiver {
                                 }
                             }
                             let packet = Packet::parse(buf);
-                            tx.send(packet).unwrap();
-                            println!("recv data!");
+                            if let Err(_) = tx.send(packet) {
+                                println!("send packet to ladspa error! channel is dead.");
+                                return;
+                            }
                         }
                     }
                     Ok(None) => {
@@ -166,7 +180,7 @@ impl Handler for PacketReceiver {
                     }
                     Err(e) => {
                         println!("listener.accept() errored: {}", e);
-                        event_loop.shutdown();
+                        //event_loop.shutdown();
                     }
                 }
             },

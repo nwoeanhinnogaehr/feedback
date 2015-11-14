@@ -1,9 +1,9 @@
 use std::thread;
-use std::sync::mpsc::{self, sync_channel};
+use std::sync::mpsc::{self, sync_channel, SendError};
 use std::io::{Write, Read, ErrorKind};
 
 use mio::*;
-use mio::tcp::TcpStream;
+use mio::tcp::{TcpStream, Shutdown};
 
 use ladspa::{PluginDescriptor, Plugin, PortConnection, Data};
 
@@ -53,7 +53,7 @@ impl Transmitter {
     }
 
     fn kill_client(&mut self) {
-        self.notify_tx.as_ref().unwrap().send(()).unwrap();
+        self.notify_tx.as_ref().unwrap().send(());
     }
 }
 
@@ -86,8 +86,13 @@ impl Plugin for Transmitter {
             }
 
             if self.lbuffer.len() == BUFFER_SIZE {
-                let packet = Packet::new(&self.lbuffer, &self.rbuffer);
-                self.data_tx.as_ref().unwrap().send(packet).unwrap();
+                let mut packet = Packet::new(&self.lbuffer, &self.rbuffer);
+                //TODO this should really push them to a queue, don't want to wait here forever.
+                while let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
+                    self.kill_client();
+                    self.init_client();
+                    packet = p;
+                }
 
                 self.lbuffer.clear();
                 self.rbuffer.clear();
@@ -118,10 +123,23 @@ impl Handler for PacketTransmitter {
     fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
         match token {
             CLIENT => {
-                assert!(events.is_writable());
                 loop {
-                    let packet = self.data_rx.recv().unwrap();
-                    self.socket.write(&packet.as_bytes()[..]).unwrap();
+                    assert!(events.is_writable());
+                    let packet = match self.data_rx.recv() {
+                        Ok(p) => p,
+                        Err(_) => {
+                            println!("err recieving packet from ladspa, channel is dead!");
+                            break;
+                        }
+                    };
+                    match self.socket.write(&packet.as_bytes()[..]) {
+                        Ok(num_written) => assert!(num_written == BYTE_BUFFER_SIZE),
+                        Err(_) => {
+                            println!("err writing packet to network!");
+                            event_loop.shutdown();
+                            break;
+                        }
+                    }
                 }
             },
             _ => panic!("Received unknown token"),
@@ -129,6 +147,7 @@ impl Handler for PacketTransmitter {
     }
 
     fn notify(&mut self, event_loop: &mut EventLoop<Self>, msg: Self::Message) {
+        self.socket.shutdown(Shutdown::Both);
         event_loop.shutdown();
     }
 }
