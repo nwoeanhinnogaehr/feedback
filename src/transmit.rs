@@ -133,7 +133,8 @@ impl Handler for PacketTransmitter {
                         }
                     };
                     match self.socket.write(&packet.as_bytes()[..]) {
-                        Ok(num_written) => assert!(num_written == BYTE_BUFFER_SIZE),
+                        Ok(num_written) =>
+                            assert!(num_written == BYTE_BUFFER_SIZE), //TODO this fails sometimes.
                         Err(_) => {
                             println!("err writing packet to network!");
                             event_loop.shutdown();
