@@ -24,6 +24,7 @@ const BUFFER_SIZE: usize = 1024;
 const BYTE_BUFFER_SIZE: usize = BUFFER_SIZE*8;
 const BASE_PORT: u16 = 21300;
 
+//TODO timestamps
 struct Packet {
     position: usize,
     ldata: [Data; BUFFER_SIZE],

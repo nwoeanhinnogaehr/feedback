@@ -102,6 +102,7 @@ impl Plugin for Receiver {
         for i in 0..sample_count {
             outputl[i] = inputl[i];
             outputr[i] = inputr[i];
+            //TODO mix overlapping data
             if let Some(mut packet) = self.active_packets.first_mut() {
                 let (l, r) = packet.read();
                 outputl[i] += l;
