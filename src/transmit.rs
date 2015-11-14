@@ -1,11 +1,11 @@
 use std::thread;
 use std::sync::mpsc::{self, sync_channel};
-use std::io::{Read, ErrorKind};
+use std::io::{Write, Read, ErrorKind};
 
 use mio::*;
 use mio::tcp::TcpStream;
 
-use ladspa::{PluginDescriptor, Plugin, PortConnection};
+use ladspa::{PluginDescriptor, Plugin, PortConnection, Data};
 
 use super::{BUFFER_SIZE, BYTE_BUFFER_SIZE, BASE_PORT};
 use super::Packet;
@@ -15,8 +15,10 @@ const CLIENT: Token = Token(1);
 pub struct Transmitter {
     sample_rate: u64,
     channel: u16,
-    packet_tx: Option<mpsc::SyncSender<Packet>>,
+    data_tx: Option<mpsc::SyncSender<Packet>>,
     notify_tx: Option<Sender<<PacketTransmitter as Handler>::Message>>,
+    lbuffer: Vec<Data>,
+    rbuffer: Vec<Data>,
 }
 
 impl Transmitter {
@@ -24,14 +26,16 @@ impl Transmitter {
         Box::new(Transmitter {
             sample_rate: sample_rate,
             channel: 0,
-            packet_tx: None,
+            data_tx: None,
             notify_tx: None,
+            lbuffer: Vec::new(),
+            rbuffer: Vec::new(),
         })
     }
 
     fn init_client(&mut self) {
         let (data_tx, data_rx) = sync_channel(16);
-        self.packet_tx = Some(data_tx);
+        self.data_tx = Some(data_tx);
 
         let channel = self.channel;
         let mut event_loop = EventLoop::new().unwrap();
@@ -39,6 +43,7 @@ impl Transmitter {
         thread::spawn(move || {
             let addr = format!("127.0.0.1:{}", BASE_PORT + channel).parse().unwrap();
             let client = TcpStream::connect(&addr).unwrap();
+            client.set_nodelay(true);
             event_loop.register(&client, CLIENT).unwrap();
             event_loop.run(&mut PacketTransmitter {
                 socket: client,
@@ -68,7 +73,26 @@ impl Plugin for Transmitter {
             self.init_client();
         }
 
-        //TODO
+        let mut i = 0;
+        while i < sample_count {
+            while self.lbuffer.len() < BUFFER_SIZE && i < sample_count {
+                self.lbuffer.push(inputl[i]);
+                self.rbuffer.push(inputr[i]);
+
+                outputl[i] = inputl[i];
+                outputr[i] = inputr[i];
+
+                i += 1;
+            }
+
+            if self.lbuffer.len() == BUFFER_SIZE {
+                let packet = Packet::new(&self.lbuffer, &self.rbuffer);
+                self.data_tx.as_ref().unwrap().send(packet).unwrap();
+
+                self.lbuffer.clear();
+                self.rbuffer.clear();
+            }
+        }
     }
 
     fn activate(&mut self) {
@@ -92,6 +116,16 @@ impl Handler for PacketTransmitter {
     type Message = ();
 
     fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
+        match token {
+            CLIENT => {
+                assert!(events.is_writable());
+                loop {
+                    let packet = self.data_rx.recv().unwrap();
+                    self.socket.write(&packet.as_bytes()[..]).unwrap();
+                }
+            },
+            _ => panic!("Received unknown token"),
+        }
     }
 
     fn notify(&mut self, event_loop: &mut EventLoop<Self>, msg: Self::Message) {
