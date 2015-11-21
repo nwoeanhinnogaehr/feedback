@@ -102,8 +102,7 @@ impl Plugin for Receiver {
         for i in 0..sample_count {
             outputl[i] = inputl[i];
             outputr[i] = inputr[i];
-            //TODO mix overlapping data
-            if let Some(mut packet) = self.active_packets.first_mut() {
+            for packet in &mut self.active_packets {
                 let (l, r) = packet.read();
                 outputl[i] += l;
                 outputr[i] += r;
@@ -169,7 +168,7 @@ impl Handler for PacketReceiver {
                                     panic!(e);
                                 }
                             }
-                            let packet = Packet::parse(buf);
+                            let packet = Packet::parse(&buf[..]);
                             if let Err(_) = tx.send(packet) {
                                 println!("send packet to ladspa error! channel is dead.");
                                 return;

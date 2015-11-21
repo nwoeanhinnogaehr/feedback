@@ -86,7 +86,7 @@ impl Plugin for Transmitter {
             }
 
             if self.lbuffer.len() == BUFFER_SIZE {
-                let mut packet = Packet::new(&self.lbuffer, &self.rbuffer);
+                let mut packet = Packet::new(&self.lbuffer, &self.rbuffer, 0);
                 //TODO this should really push them to a queue, don't want to wait here forever.
                 while let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
                     self.kill_client();
