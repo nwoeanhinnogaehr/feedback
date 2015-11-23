@@ -7,8 +7,8 @@ use mio::tcp::TcpListener;
 
 use ladspa::{PluginDescriptor, Plugin, PortConnection};
 
-use super::{BUFFER_SIZE, BYTE_BUFFER_SIZE, BASE_PORT};
-use super::Packet;
+use super::BASE_PORT;
+use super::packet::{BUFFER_SIZE, BYTE_BUFFER_SIZE, Packet};
 
 const SERVER: Token = Token(0);
 
@@ -101,15 +101,15 @@ impl Plugin for Receiver {
 
         for i in 0..sample_count {
             outputl[i] = inputl[i];
-            outputr[i] = inputr[i];
+            outputr[i] = inputl[i];
             for packet in &mut self.active_packets {
-                let (l, r) = packet.read();
+                let (l, r) = packet.read(i as u64); //TODO calculate based on actual time
                 outputl[i] += l;
                 outputr[i] += r;
             }
         }
 
-        self.active_packets.retain(|x| x.active());
+        self.active_packets.retain(|x| !x.complete(sample_count as u64)); //TODO calculate based on actual time
     }
 
     fn activate(&mut self) {

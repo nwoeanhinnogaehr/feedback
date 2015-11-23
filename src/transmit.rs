@@ -7,8 +7,8 @@ use mio::tcp::{TcpStream, Shutdown};
 
 use ladspa::{PluginDescriptor, Plugin, PortConnection, Data};
 
-use super::{BUFFER_SIZE, BYTE_BUFFER_SIZE, BASE_PORT};
-use super::Packet;
+use super::BASE_PORT;
+use super::packet::{BUFFER_SIZE, BYTE_BUFFER_SIZE, Packet};
 
 const CLIENT: Token = Token(1);
 
@@ -86,6 +86,7 @@ impl Plugin for Transmitter {
             }
 
             if self.lbuffer.len() == BUFFER_SIZE {
+                //TODO set time properly
                 let mut packet = Packet::new(&self.lbuffer, &self.rbuffer, 0);
                 //TODO this should really push them to a queue, don't want to wait here forever.
                 while let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
