@@ -10,6 +10,9 @@ mod receive;
 mod transmit;
 mod packet;
 
+#[cfg(test)]
+mod test;
+
 use std::default::Default;
 
 use ladspa::{Port, PortDescriptor};
