@@ -9,7 +9,6 @@ use std::thread;
 use std::time::Duration;
 
 const SAMPLE_RATE: u64 = 44100;
-const SAMPLE_COUNT: usize = 1024;
 
 #[derive(Debug)]
 enum OwnedPortData {
@@ -45,14 +44,14 @@ struct OwnedPortConnection {
     data: OwnedPortData,
 }
 
-fn make_owned_port_connections(ports: &[Port], input_tag: f32, output_tag: f32) -> Vec<OwnedPortConnection> {
+fn make_owned_port_connections(ports: &[Port], size: usize, input_tag: f32, output_tag: f32) -> Vec<OwnedPortConnection> {
     use ladspa::PortDescriptor::*;
 
     let mut out = Vec::new();
     for port in ports {
         let data = match port.desc {
-            AudioInput => OwnedPortData::AudioInput(vec![input_tag; SAMPLE_COUNT]),
-            AudioOutput => OwnedPortData::AudioOutput(vec![output_tag; SAMPLE_COUNT]),
+            AudioInput => OwnedPortData::AudioInput(vec![input_tag; size]),
+            AudioOutput => OwnedPortData::AudioOutput(vec![output_tag; size]),
             ControlInput => OwnedPortData::ControlInput(0.0),
             ControlOutput => OwnedPortData::ControlOutput(0.0),
             Invalid => panic!(),
@@ -87,9 +86,12 @@ fn borrow_port_connections<'a>(ports: &'a [PortConnection<'a>]) -> Vec<&'a PortC
     ports.iter().map(|x| x).collect()
 }
 
+//TODO immediately: factor
 
 #[test]
 fn test_working_basic() {
+    let sample_count = super::packet::BUFFER_SIZE;
+
     let tx_desc = get_ladspa_descriptor(0).unwrap();
     let rx_desc = get_ladspa_descriptor(1).unwrap();
     let mut tx = (tx_desc.new)(&tx_desc, SAMPLE_RATE);
@@ -98,17 +100,50 @@ fn test_working_basic() {
     rx.activate();
     tx.activate();
 
-    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, 1.0, 0.0);
-    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, 0.0, 0.0);
+    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, 1.0, 0.0);
+    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, 0.0, 0.0);
     {
         let tx_ports = make_port_connections(&mut tx_owned);
         let rx_ports = make_port_connections(&mut rx_owned);
         let tx_ports = borrow_port_connections(&tx_ports);
         let rx_ports = borrow_port_connections(&rx_ports);
 
-        tx.run(SAMPLE_COUNT, &tx_ports);
+        tx.run(sample_count, &tx_ports);
         thread::sleep(Duration::from_millis(100)); // wait for recv
-        rx.run(SAMPLE_COUNT, &rx_ports);
+        rx.run(sample_count, &rx_ports);
+    }
+
+    for i in 0..2 {
+        assert_eq!(tx_owned[i].data, rx_owned[i+2].data);
+    }
+
+    rx.deactivate();
+    tx.deactivate();
+}
+
+#[test]
+fn test_working_multi_packet() {
+    let sample_count = super::packet::BUFFER_SIZE*4;
+
+    let tx_desc = get_ladspa_descriptor(0).unwrap();
+    let rx_desc = get_ladspa_descriptor(1).unwrap();
+    let mut tx = (tx_desc.new)(&tx_desc, SAMPLE_RATE);
+    let mut rx = (rx_desc.new)(&rx_desc, SAMPLE_RATE);
+
+    rx.activate();
+    tx.activate();
+
+    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, 1.0, 0.0);
+    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, 0.0, 0.0);
+    {
+        let tx_ports = make_port_connections(&mut tx_owned);
+        let rx_ports = make_port_connections(&mut rx_owned);
+        let tx_ports = borrow_port_connections(&tx_ports);
+        let rx_ports = borrow_port_connections(&rx_ports);
+
+        tx.run(sample_count, &tx_ports);
+        thread::sleep(Duration::from_millis(100)); // wait for recv
+        rx.run(sample_count, &rx_ports);
     }
 
     for i in 0..2 {
