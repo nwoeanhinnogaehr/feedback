@@ -94,7 +94,7 @@ fn borrow_port_connections<'a>(ports: &'a [PortConnection<'a>]) -> Vec<&'a PortC
     ports.iter().map(|x| x).collect()
 }
 
-// #[test]
+#[test]
 fn test_working_basic() {
     let sample_count = super::packet::BUFFER_SIZE;
     test_sample_count(sample_count, 0);
