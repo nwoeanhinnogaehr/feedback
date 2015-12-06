@@ -92,40 +92,16 @@ fn borrow_port_connections<'a>(ports: &'a [PortConnection<'a>]) -> Vec<&'a PortC
 #[test]
 fn test_working_basic() {
     let sample_count = super::packet::BUFFER_SIZE;
-
-    let tx_desc = get_ladspa_descriptor(0).unwrap();
-    let rx_desc = get_ladspa_descriptor(1).unwrap();
-    let mut tx = (tx_desc.new)(&tx_desc, SAMPLE_RATE);
-    let mut rx = (rx_desc.new)(&rx_desc, SAMPLE_RATE);
-
-    rx.activate();
-    tx.activate();
-
-    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, 0.0, 1.0, 0.0);
-    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, 0.0, 0.0, 0.0);
-    {
-        let tx_ports = make_port_connections(&mut tx_owned);
-        let rx_ports = make_port_connections(&mut rx_owned);
-        let tx_ports = borrow_port_connections(&tx_ports);
-        let rx_ports = borrow_port_connections(&rx_ports);
-
-        tx.run(sample_count, &tx_ports);
-        thread::sleep(Duration::from_millis(100)); // wait for recv
-        rx.run(sample_count, &rx_ports);
-    }
-
-    for i in 0..2 {
-        assert_eq!(tx_owned[i].data, rx_owned[i+2].data);
-    }
-
-    rx.deactivate();
-    tx.deactivate();
+    test_sample_count(sample_count, 0);
 }
 
 #[test]
 fn test_working_multi_packet() {
     let sample_count = super::packet::BUFFER_SIZE*4;
+    test_sample_count(sample_count, 1);
+}
 
+fn test_sample_count(sample_count: usize, port: u8) {
     let tx_desc = get_ladspa_descriptor(0).unwrap();
     let rx_desc = get_ladspa_descriptor(1).unwrap();
     let mut tx = (tx_desc.new)(&tx_desc, SAMPLE_RATE);
@@ -134,8 +110,8 @@ fn test_working_multi_packet() {
     rx.activate();
     tx.activate();
 
-    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, 1.0, 1.0, 0.0);
-    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, 1.0, 0.0, 0.0);
+    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, port as f32, 1.0, 0.0);
+    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, port as f32, 0.0, 0.0);
     {
         let tx_ports = make_port_connections(&mut tx_owned);
         let rx_ports = make_port_connections(&mut rx_owned);
