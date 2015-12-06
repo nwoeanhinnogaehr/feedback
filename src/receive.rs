@@ -79,6 +79,7 @@ impl Plugin for Receiver {
             println!("set channel {}", self.channel);
             self.kill_server();
             self.init_server();
+            return;
         }
 
         loop {

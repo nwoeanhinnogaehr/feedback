@@ -72,6 +72,7 @@ impl Plugin for Transmitter {
             println!("set channel {}", self.channel);
             self.kill_client();
             self.init_client();
+            return;
         }
 
         let mut i = 0;
@@ -132,6 +133,7 @@ impl Handler for PacketTransmitter {
                         Err(_) => {
                             println!("err recieving packet from ladspa, channel is dead!");
                             // TODO shutdown here?
+                            event_loop.shutdown();
                             break;
                         }
                     };
