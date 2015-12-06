@@ -47,15 +47,16 @@ impl Receiver {
                     Ok(s) => {
                         server = s;
                         break;
-                    },
-                    Err(_) => { },
+                    }
+                    Err(_) => {}
                 }
             }
             event_loop.register(&server, SERVER).unwrap();
             event_loop.run(&mut PacketReceiver {
-                server: server,
-                data_tx: data_tx,
-            }).unwrap();
+                          server: server,
+                          data_tx: data_tx,
+                      })
+                      .unwrap();
         });
     }
 
@@ -91,7 +92,7 @@ impl Plugin for Receiver {
                     self.kill_server();
                     self.init_server();
                     break;
-                },
+                }
                 Err(TryRecvError::Empty) => {
                     break;
                 }
@@ -138,9 +139,10 @@ impl Handler for PacketReceiver {
                 // Only receive readable events
                 assert!(events.is_readable());
 
-                println!("the server socket is ready to accept a connection");
+                println!("server wait");
                 match self.server.accept() {
                     Ok(Some(mut socket)) => {
+                        println!("server accept");
                         let tx = self.data_tx.clone();
                         let mut buf = [0; BYTE_BUFFER_SIZE];
                         let mut buf_pos = 0;
@@ -148,6 +150,7 @@ impl Handler for PacketReceiver {
                             let res = socket.read(&mut buf[buf_pos..]);
                             match res {
                                 Ok(num_read) => {
+                                    println!("do recv: {:?}", num_read);
                                     // if we got a length zero read, the connection is done.
                                     if num_read == 0 {
                                         println!("read zero bytes");
@@ -180,10 +183,10 @@ impl Handler for PacketReceiver {
                     }
                     Err(e) => {
                         println!("listener.accept() errored: {}", e);
-                        //event_loop.shutdown();
+                        // event_loop.shutdown();
                     }
                 }
-            },
+            }
             _ => panic!("Received unknown token"),
         }
     }

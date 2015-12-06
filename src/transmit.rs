@@ -46,9 +46,10 @@ impl Transmitter {
             client.set_nodelay(true);
             event_loop.register(&client, CLIENT).unwrap();
             event_loop.run(&mut PacketTransmitter {
-                socket: client,
-                data_rx: data_rx,
-            }).unwrap();
+                          socket: client,
+                          data_rx: data_rx,
+                      })
+                      .unwrap();
         });
     }
 
@@ -86,9 +87,9 @@ impl Plugin for Transmitter {
             }
 
             if self.lbuffer.len() == BUFFER_SIZE {
-                //TODO set time properly
+                // TODO set time properly
                 let mut packet = Packet::new(&self.lbuffer, &self.rbuffer, 0);
-                //TODO this should really push them to a queue, don't want to wait here forever.
+                // TODO this should really push them to a queue, don't want to wait here forever.
                 while let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
                     self.kill_client();
                     self.init_client();
@@ -130,12 +131,13 @@ impl Handler for PacketTransmitter {
                         Ok(p) => p,
                         Err(_) => {
                             println!("err recieving packet from ladspa, channel is dead!");
+                            // TODO shutdown here?
                             break;
                         }
                     };
+                    println!("do tx");
                     match self.socket.write(&packet.as_bytes()[..]) {
-                        Ok(num_written) =>
-                            assert!(num_written == BYTE_BUFFER_SIZE), //TODO this fails sometimes.
+                        Ok(num_written) => assert!(num_written == BYTE_BUFFER_SIZE), //TODO this fails sometimes.
                         Err(_) => {
                             println!("err writing packet to network!");
                             event_loop.shutdown();
@@ -143,7 +145,7 @@ impl Handler for PacketTransmitter {
                         }
                     }
                 }
-            },
+            }
             _ => panic!("Received unknown token"),
         }
     }
@@ -153,4 +155,3 @@ impl Handler for PacketTransmitter {
         event_loop.shutdown();
     }
 }
-

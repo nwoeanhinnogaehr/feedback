@@ -64,7 +64,7 @@ impl Packet {
     }
 
     pub fn complete(&self, time: u64) -> bool {
-        time >= self.timestamp+BUFFER_SIZE as u64
+        time >= self.timestamp + BUFFER_SIZE as u64
     }
 }
 
@@ -98,8 +98,8 @@ fn test_packet_read() {
     assert_eq!((0.0, 0.0), packet.read(0));
     assert_eq!((0.0, 0.0), packet.read(99));
     assert_eq!((1.0, 2.0), packet.read(100));
-    assert_eq!((1.0, 2.0), packet.read(100+BUFFER_SIZE as u64-1));
-    assert_eq!((0.0, 0.0), packet.read(100+BUFFER_SIZE as u64));
+    assert_eq!((1.0, 2.0), packet.read(100 + BUFFER_SIZE as u64 - 1));
+    assert_eq!((0.0, 0.0), packet.read(100 + BUFFER_SIZE as u64));
 }
 
 #[test]
@@ -113,8 +113,8 @@ fn test_packet_active_complete() {
     assert!(!packet.complete(99));
     assert!(packet.active(100));
     assert!(!packet.complete(100));
-    assert!(packet.active(100+BUFFER_SIZE as u64-1));
-    assert!(!packet.complete(100+BUFFER_SIZE as u64-1));
-    assert!(!packet.active(100+BUFFER_SIZE as u64));
-    assert!(packet.complete(100+BUFFER_SIZE as u64));
+    assert!(packet.active(100 + BUFFER_SIZE as u64 - 1));
+    assert!(!packet.complete(100 + BUFFER_SIZE as u64 - 1));
+    assert!(!packet.active(100 + BUFFER_SIZE as u64));
+    assert!(packet.complete(100 + BUFFER_SIZE as u64));
 }
