@@ -44,7 +44,8 @@ struct OwnedPortConnection {
     data: OwnedPortData,
 }
 
-fn make_owned_port_connections(ports: &[Port], size: usize, input_tag: f32, output_tag: f32) -> Vec<OwnedPortConnection> {
+//TODO port is fragile
+fn make_owned_port_connections(ports: &[Port], size: usize, port_tag: f32, input_tag: f32, output_tag: f32) -> Vec<OwnedPortConnection> {
     use ladspa::PortDescriptor::*;
 
     let mut out = Vec::new();
@@ -52,8 +53,8 @@ fn make_owned_port_connections(ports: &[Port], size: usize, input_tag: f32, outp
         let data = match port.desc {
             AudioInput => OwnedPortData::AudioInput(vec![input_tag; size]),
             AudioOutput => OwnedPortData::AudioOutput(vec![output_tag; size]),
-            ControlInput => OwnedPortData::ControlInput(0.0),
-            ControlOutput => OwnedPortData::ControlOutput(0.0),
+            ControlInput => OwnedPortData::ControlInput(port_tag),
+            ControlOutput => OwnedPortData::ControlOutput(port_tag),
             Invalid => panic!(),
         };
         out.push(OwnedPortConnection {
@@ -100,8 +101,8 @@ fn test_working_basic() {
     rx.activate();
     tx.activate();
 
-    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, 1.0, 0.0);
-    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, 0.0, 0.0);
+    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, 0.0, 1.0, 0.0);
+    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, 0.0, 0.0, 0.0);
     {
         let tx_ports = make_port_connections(&mut tx_owned);
         let rx_ports = make_port_connections(&mut rx_owned);
@@ -133,8 +134,8 @@ fn test_working_multi_packet() {
     rx.activate();
     tx.activate();
 
-    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, 1.0, 0.0);
-    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, 0.0, 0.0);
+    let mut tx_owned = make_owned_port_connections(&tx_desc.ports, sample_count, 1.0, 1.0, 0.0);
+    let mut rx_owned = make_owned_port_connections(&rx_desc.ports, sample_count, 1.0, 0.0, 0.0);
     {
         let tx_ports = make_port_connections(&mut tx_owned);
         let rx_ports = make_port_connections(&mut rx_owned);
