@@ -44,7 +44,6 @@ struct OwnedPortConnection {
     data: OwnedPortData,
 }
 
-// TODO port is fragile
 fn make_owned_port_connections(ports: &[Port], size: usize) -> Vec<OwnedPortConnection> {
     use ladspa::PortDescriptor::*;
 
