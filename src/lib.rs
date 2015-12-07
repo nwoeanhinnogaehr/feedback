@@ -1,8 +1,7 @@
-#![feature(convert, clone_from_slice, vec_push_all)]
+#![feature(convert, clone_from_slice)]
 
 extern crate ladspa;
 extern crate mio;
-extern crate time;
 extern crate rustc_serialize;
 extern crate bincode;
 
