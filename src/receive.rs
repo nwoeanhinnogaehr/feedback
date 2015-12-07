@@ -109,7 +109,7 @@ impl Plugin for Receiver {
 
         for i in 0..sample_count {
             outputl[i] = inputl[i];
-            outputr[i] = inputl[i];
+            outputr[i] = inputr[i];
         }
         let mut read_clients = Vec::new();
         for &mut (ref client_id, ref mut packet) in &mut self.active_packets {
