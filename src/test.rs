@@ -10,6 +10,9 @@ use std::time::Duration;
 
 const SAMPLE_RATE: u64 = 44100;
 
+// TODO this port connection stuff is a mess because the Plugin trait in ladspa is too specific.
+// it would be a breaking change to fix it, but should be done at some point because this is nuts.
+
 #[derive(Debug)]
 enum OwnedPortData {
     AudioInput(Vec<Data>),
