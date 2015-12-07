@@ -1,6 +1,6 @@
 use std::thread;
-use std::sync::mpsc::{self, sync_channel, SendError};
-use std::io::{Write, Read, ErrorKind};
+use std::sync::mpsc::{self, sync_channel};
+use std::io::Write;
 
 use mio::*;
 use mio::tcp::{TcpStream, Shutdown};
@@ -19,7 +19,7 @@ pub struct Transmitter {
     notify_tx: Option<Sender<<PacketTransmitter as Handler>::Message>>,
     lbuffer: Vec<Data>,
     rbuffer: Vec<Data>,
-    packet_queue: Vec<Packet>,
+    time: u64,
 }
 
 impl Transmitter {
@@ -31,7 +31,7 @@ impl Transmitter {
             notify_tx: None,
             lbuffer: Vec::new(),
             rbuffer: Vec::new(),
-            packet_queue: Vec::new(),
+            time: 0,
         })
     }
 
@@ -77,16 +77,6 @@ impl Plugin for Transmitter {
             return;
         }
 
-        let mut still_queued = Vec::new();
-        for packet in self.packet_queue.iter().cloned() {
-            if let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
-                still_queued.push(p);
-                println!("repush to queue");
-            }
-        }
-        self.packet_queue.clear();
-        self.packet_queue.push_all(&still_queued);
-
         let mut need_reboot = false;
         let mut i = 0;
         while i < sample_count {
@@ -101,15 +91,11 @@ impl Plugin for Transmitter {
             }
 
             if self.lbuffer.len() == BUFFER_SIZE {
-                // TODO set time properly
-                let mut packet = Packet::new(&self.lbuffer, &self.rbuffer, 0);
+                println!("send time {}", self.time);
+                let mut packet = Packet::new(&self.lbuffer, &self.rbuffer, self.time);
+                self.time += BUFFER_SIZE as u64;
 
-                // TODO maybe this should actually just discard them
-                if let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
-                    need_reboot = true;
-                    self.packet_queue.push(p);
-                    println!("push to queue");
-                }
+                need_reboot |= self.data_tx.as_ref().unwrap().send(packet).is_err();
 
                 self.lbuffer.clear();
                 self.rbuffer.clear();
@@ -123,6 +109,9 @@ impl Plugin for Transmitter {
 
     fn activate(&mut self) {
         println!("activate {}", self.channel);
+        self.lbuffer.clear();
+        self.rbuffer.clear();
+        self.time = 0;
         self.init_client();
     }
 

@@ -161,9 +161,8 @@ fn test_sample_count(sample_count: usize, port: u8) {
     rx.deactivate();
     tx.deactivate();
     rx.activate();
-    tx.activate();
     thread::sleep(Duration::from_millis(100));
-
+    tx.activate();
     thread::sleep(Duration::from_millis(100));
 
     tx_owned.set_tags(port as f32, 1.0, 0.0);

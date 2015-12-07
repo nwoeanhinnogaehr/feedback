@@ -1,6 +1,7 @@
 use std::thread;
 use std::sync::mpsc::{self, sync_channel, TryRecvError};
 use std::io::{Read, ErrorKind};
+use std::collections::HashMap;
 
 use mio::*;
 use mio::tcp::TcpListener;
@@ -10,14 +11,17 @@ use ladspa::{PluginDescriptor, Plugin, PortConnection};
 use super::BASE_PORT;
 use super::packet::{BUFFER_SIZE, BYTE_BUFFER_SIZE, Packet};
 
+type ClientPacket = (u64, Packet);
+
 const SERVER: Token = Token(0);
 
 pub struct Receiver {
     sample_rate: u64,
     channel: u16,
-    packet_rx: Option<mpsc::Receiver<Packet>>,
-    active_packets: Vec<Packet>,
+    packet_rx: Option<mpsc::Receiver<ClientPacket>>,
+    active_packets: Vec<ClientPacket>,
     notify_tx: Option<Sender<<PacketReceiver as Handler>::Message>>,
+    client_time_map: HashMap<u64, u64>,
 }
 
 impl Receiver {
@@ -29,6 +33,7 @@ impl Receiver {
             packet_rx: None,
             active_packets: Vec::new(),
             notify_tx: None,
+            client_time_map: HashMap::new(),
         })
     }
 
@@ -55,6 +60,7 @@ impl Receiver {
             event_loop.run(&mut PacketReceiver {
                           server: server,
                           data_tx: data_tx,
+                          client_id: 0,
                       })
                       .unwrap();
         });
@@ -104,18 +110,33 @@ impl Plugin for Receiver {
         for i in 0..sample_count {
             outputl[i] = inputl[i];
             outputr[i] = inputl[i];
-            for packet in &mut self.active_packets {
-                let (l, r) = packet.read(i as u64); //TODO calculate based on actual time
+        }
+        let mut read_clients = Vec::new();
+        for &mut (ref client_id, ref mut packet) in &mut self.active_packets {
+            let client_time = self.client_time_map.get(client_id).map(|x| *x).unwrap_or(0);
+            for i in 0..sample_count {
+                let (l, r) = packet.read(client_time + i as u64);
                 outputl[i] += l;
                 outputr[i] += r;
             }
+            read_clients.push(*client_id);
+        }
+        for client_id in read_clients {
+            let client_time = self.client_time_map.get(&client_id).map(|x| *x).unwrap_or(0);
+            self.client_time_map.insert(client_id, client_time + BUFFER_SIZE as u64);
         }
 
-        self.active_packets.retain(|x| !x.complete(sample_count as u64)); //TODO calculate based on actual time
+        let client_time_map = self.client_time_map.clone();
+        self.active_packets.retain(|&(ref client_id, ref packet)| {
+            let client_time = client_time_map[client_id];
+            println!("client {} time {}", client_id, client_time);
+            !packet.complete(client_time)
+        });
     }
 
     fn activate(&mut self) {
         println!("activate {}", self.channel);
+        self.client_time_map.clear();
         self.init_server();
     }
 
@@ -127,12 +148,13 @@ impl Plugin for Receiver {
 
 struct PacketReceiver {
     server: TcpListener,
-    data_tx: mpsc::SyncSender<Packet>,
+    data_tx: mpsc::SyncSender<ClientPacket>,
+    client_id: u64,
 }
 
 impl Handler for PacketReceiver {
     type Timeout = ();
-    type Message = ();
+        type Message = ();
 
     fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
         match token {
@@ -147,6 +169,8 @@ impl Handler for PacketReceiver {
                         let tx = self.data_tx.clone();
                         let mut buf = [0; BYTE_BUFFER_SIZE];
                         let mut buf_pos = 0;
+                        let client_id = self.client_id;
+                        self.client_id += 1;
                         loop {
                             let res = socket.read(&mut buf[buf_pos..]);
                             match res {
@@ -171,8 +195,8 @@ impl Handler for PacketReceiver {
                                     panic!(e);
                                 }
                             }
-                            let packet = Packet::parse(&buf[..]);
-                            if let Err(_) = tx.send(packet) {
+                            let mut packet = Packet::parse(&buf[..]);
+                            if let Err(_) = tx.send((client_id, packet)) {
                                 println!("send packet to ladspa error! channel is dead.");
                                 return;
                             }
