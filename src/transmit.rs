@@ -91,7 +91,6 @@ impl Plugin for Transmitter {
             }
 
             if self.lbuffer.len() == BUFFER_SIZE {
-                println!("send time {}", self.time);
                 let mut packet = Packet::new(&self.lbuffer, &self.rbuffer, self.time);
                 self.time += BUFFER_SIZE as u64;
 

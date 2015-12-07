@@ -1,5 +1,5 @@
 use std::thread;
-use std::sync::mpsc::{self, sync_channel, TryRecvError};
+use std::sync::mpsc::{self, channel, TryRecvError};
 use std::io::{Read, ErrorKind};
 use std::collections::HashMap;
 
@@ -38,7 +38,7 @@ impl Receiver {
     }
 
     fn init_server(&mut self) {
-        let (data_tx, data_rx) = sync_channel(16);
+        let (data_tx, data_rx) = channel();
         self.packet_rx = Some(data_rx);
 
         let channel = self.channel;
@@ -89,9 +89,6 @@ impl Plugin for Receiver {
         }
 
         loop {
-            if self.active_packets.len() > 128 {
-                break;
-            }
             let packet = match self.packet_rx.as_ref().unwrap().try_recv() {
                 Ok(packet) => packet,
                 Err(TryRecvError::Disconnected) => {
@@ -129,7 +126,6 @@ impl Plugin for Receiver {
         let client_time_map = self.client_time_map.clone();
         self.active_packets.retain(|&(ref client_id, ref packet)| {
             let client_time = client_time_map[client_id];
-            println!("client {} time {}", client_id, client_time);
             !packet.complete(client_time)
         });
     }
@@ -148,7 +144,7 @@ impl Plugin for Receiver {
 
 struct PacketReceiver {
     server: TcpListener,
-    data_tx: mpsc::SyncSender<ClientPacket>,
+    data_tx: mpsc::Sender<ClientPacket>,
     client_id: u64,
 }
 

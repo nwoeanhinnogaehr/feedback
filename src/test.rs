@@ -86,7 +86,10 @@ impl Tagged for Vec<OwnedPortConnection> {
                     }
                 }
                 ControlInput(ref mut x) => {
-                    *x = port_tag;
+                    match port.port.name {
+                        "Channel" => *x = port_tag,
+                        _ => *x = 0.0,
+                    }
                 }
                 ControlOutput(ref mut x) => {
                     *x = 0.0;
@@ -128,7 +131,7 @@ fn test_working_basic() {
 
 #[test]
 fn test_working_multi_packet() {
-    let sample_count = super::packet::BUFFER_SIZE * 4;
+    let sample_count = super::packet::BUFFER_SIZE * 32;
     test_sample_count(sample_count, 1);
 }
 
