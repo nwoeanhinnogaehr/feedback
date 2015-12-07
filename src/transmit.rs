@@ -138,7 +138,6 @@ impl Handler for PacketTransmitter {
                         Ok(p) => p,
                         Err(_) => {
                             println!("err recieving packet from ladspa, channel is dead!");
-                            // TODO shutdown here?
                             event_loop.shutdown();
                             break;
                         }
