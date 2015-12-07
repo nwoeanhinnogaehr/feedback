@@ -1,4 +1,4 @@
-#![feature(convert, clone_from_slice)]
+#![feature(convert, clone_from_slice, vec_push_all)]
 
 extern crate ladspa;
 extern crate mio;

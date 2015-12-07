@@ -6,7 +6,7 @@ use msgpack::{Decoder, Encoder};
 pub const BUFFER_SIZE: usize = 1024;
 pub const BYTE_BUFFER_SIZE: usize = 10248; // not sure how to find this other than by running and testing it out!
 
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(RustcEncodable, RustcDecodable, Clone)]
 pub struct Packet {
     ldata: Vec<Data>,
     rdata: Vec<Data>,

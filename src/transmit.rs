@@ -19,6 +19,7 @@ pub struct Transmitter {
     notify_tx: Option<Sender<<PacketTransmitter as Handler>::Message>>,
     lbuffer: Vec<Data>,
     rbuffer: Vec<Data>,
+    packet_queue: Vec<Packet>,
 }
 
 impl Transmitter {
@@ -30,6 +31,7 @@ impl Transmitter {
             notify_tx: None,
             lbuffer: Vec::new(),
             rbuffer: Vec::new(),
+            packet_queue: Vec::new(),
         })
     }
 
@@ -75,6 +77,17 @@ impl Plugin for Transmitter {
             return;
         }
 
+        let mut still_queued = Vec::new();
+        for packet in self.packet_queue.iter().cloned() {
+            if let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
+                still_queued.push(p);
+                println!("repush to queue");
+            }
+        }
+        self.packet_queue.clear();
+        self.packet_queue.push_all(&still_queued);
+
+        let mut need_reboot = false;
         let mut i = 0;
         while i < sample_count {
             while self.lbuffer.len() < BUFFER_SIZE && i < sample_count {
@@ -90,16 +103,21 @@ impl Plugin for Transmitter {
             if self.lbuffer.len() == BUFFER_SIZE {
                 // TODO set time properly
                 let mut packet = Packet::new(&self.lbuffer, &self.rbuffer, 0);
-                // TODO this should really push them to a queue, don't want to wait here forever.
-                while let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
-                    self.kill_client();
-                    self.init_client();
-                    packet = p;
+
+                // TODO maybe this should actually just discard them
+                if let Err(SendError(p)) = self.data_tx.as_ref().unwrap().send(packet) {
+                    need_reboot = true;
+                    self.packet_queue.push(p);
+                    println!("push to queue");
                 }
 
                 self.lbuffer.clear();
                 self.rbuffer.clear();
             }
+        }
+        if need_reboot {
+            self.kill_client();
+            self.init_client();
         }
     }
 
@@ -137,9 +155,14 @@ impl Handler for PacketTransmitter {
                             break;
                         }
                     };
-                    println!("do tx");
                     match self.socket.write(&packet.as_bytes()[..]) {
-                        Ok(num_written) => assert!(num_written == BYTE_BUFFER_SIZE), //TODO this fails sometimes.
+                        Ok(num_written) => {
+                            if num_written != BYTE_BUFFER_SIZE {
+                                println!("incorrect write size: {}", num_written);
+                                event_loop.shutdown();
+                                break;
+                            }
+                        }
                         Err(_) => {
                             println!("err writing packet to network!");
                             event_loop.shutdown();

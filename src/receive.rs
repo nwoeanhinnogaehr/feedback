@@ -151,7 +151,6 @@ impl Handler for PacketReceiver {
                             let res = socket.read(&mut buf[buf_pos..]);
                             match res {
                                 Ok(num_read) => {
-                                    println!("do recv: {:?}", num_read);
                                     // if we got a length zero read, the connection is done.
                                     if num_read == 0 {
                                         println!("read zero bytes");
