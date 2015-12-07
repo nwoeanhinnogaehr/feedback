@@ -4,7 +4,7 @@ extern crate ladspa;
 extern crate mio;
 extern crate time;
 extern crate rustc_serialize;
-extern crate rmp_serialize as msgpack;
+extern crate bincode;
 
 mod receive;
 mod transmit;

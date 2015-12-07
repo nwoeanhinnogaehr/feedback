@@ -1,10 +1,10 @@
 use ladspa::Data;
 
-use rustc_serialize::{Decodable, Encodable};
-use msgpack::{Decoder, Encoder};
+use bincode::SizeLimit;
+use bincode::rustc_serialize::{encode, decode};
 
 pub const BUFFER_SIZE: usize = 1024;
-pub const BYTE_BUFFER_SIZE: usize = 10248; // not sure how to find this other than by running and testing it out!
+pub const BYTE_BUFFER_SIZE: usize = 8216;
 
 #[derive(RustcEncodable, RustcDecodable, Clone)]
 pub struct Packet {
@@ -15,9 +15,7 @@ pub struct Packet {
 
 impl Packet {
     pub fn parse(bytes: &[u8]) -> Packet {
-        let mut decoder = Decoder::new(bytes);
-        let packet = Decodable::decode(&mut decoder).unwrap();
-        packet
+        decode(bytes).unwrap()
     }
 
     pub fn new(ldata: &[Data], rdata: &[Data], time: u64) -> Packet {
@@ -36,9 +34,7 @@ impl Packet {
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        self.encode(&mut Encoder::new(&mut bytes)).unwrap();
-        bytes
+        encode(self, SizeLimit::Infinite).unwrap()
     }
 
     pub fn get_ldata(&self) -> &[Data] {
