@@ -25,7 +25,7 @@ pub struct Receiver {
 }
 
 impl Receiver {
-    pub fn new(desc: &PluginDescriptor, sample_rate: u64) -> Box<Plugin + Send> {
+    pub fn new(_: &PluginDescriptor, sample_rate: u64) -> Box<Plugin + Send> {
         println!("receiver::new");
         Box::new(Receiver {
             sample_rate: sample_rate,
@@ -195,7 +195,7 @@ impl Handler for PacketReceiver {
                                     panic!(e);
                                 }
                             }
-                            let mut packet = Packet::parse(&buf[..]);
+                            let packet = Packet::parse(&buf[..]);
                             if let Err(_) = tx.send((client_id, packet)) {
                                 println!("send packet to ladspa error! channel is dead.");
                                 return;

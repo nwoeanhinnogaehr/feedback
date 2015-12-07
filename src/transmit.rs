@@ -23,7 +23,7 @@ pub struct Transmitter {
 }
 
 impl Transmitter {
-    pub fn new(desc: &PluginDescriptor, sample_rate: u64) -> Box<Plugin + Send> {
+    pub fn new(_: &PluginDescriptor, sample_rate: u64) -> Box<Plugin + Send> {
         Box::new(Transmitter {
             sample_rate: sample_rate,
             channel: 0,
