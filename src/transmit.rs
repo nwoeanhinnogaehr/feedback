@@ -45,7 +45,7 @@ impl Transmitter {
         thread::spawn(move || {
             let addr = format!("127.0.0.1:{}", BASE_PORT + channel).parse().unwrap();
             let client = TcpStream::connect(&addr).unwrap();
-            client.set_nodelay(true);
+            client.set_nodelay(true).unwrap();
             event_loop.register(&client, CLIENT).unwrap();
             event_loop.run(&mut PacketTransmitter {
                           socket: client,
@@ -56,12 +56,13 @@ impl Transmitter {
     }
 
     fn kill_client(&mut self) {
-        self.notify_tx.as_ref().unwrap().send(());
+        let _ = self.notify_tx.as_ref().unwrap().send(());
     }
 }
 
 impl Plugin for Transmitter {
     fn run<'a>(&mut self, sample_count: usize, ports: &[&'a PortConnection<'a>]) {
+        println!("sample count {}", sample_count);
         let inputl = ports[0].unwrap_audio();
         let inputr = ports[1].unwrap_audio();
         let mut outputl = ports[2].unwrap_audio_mut();
@@ -69,15 +70,14 @@ impl Plugin for Transmitter {
 
         let channel = *ports[4].unwrap_control() as u16;
 
+        let mut need_reboot = false;
+
         if channel != self.channel {
             self.channel = channel;
             println!("set channel {}", self.channel);
-            self.kill_client();
-            self.init_client();
-            return;
+            need_reboot = true;
         }
 
-        let mut need_reboot = false;
         let mut i = 0;
         while i < sample_count {
             while self.lbuffer.len() < BUFFER_SIZE && i < sample_count {
@@ -91,7 +91,7 @@ impl Plugin for Transmitter {
             }
 
             if self.lbuffer.len() == BUFFER_SIZE {
-                let mut packet = Packet::new(&self.lbuffer, &self.rbuffer, self.time);
+                let packet = Packet::new(&self.lbuffer, &self.rbuffer, self.time);
                 self.time += BUFFER_SIZE as u64;
 
                 need_reboot |= self.data_tx.as_ref().unwrap().send(packet).is_err();
@@ -132,6 +132,7 @@ impl Handler for PacketTransmitter {
     fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
         match token {
             CLIENT => {
+                println!("client accept");
                 loop {
                     assert!(events.is_writable());
                     let packet = match self.data_rx.recv() {
@@ -144,6 +145,7 @@ impl Handler for PacketTransmitter {
                     };
                     match self.socket.write(&packet.as_bytes()[..]) {
                         Ok(num_written) => {
+                            //println!("client wrote {}", num_written);
                             if num_written != BYTE_BUFFER_SIZE {
                                 println!("incorrect write size: {}", num_written);
                                 event_loop.shutdown();
@@ -163,7 +165,7 @@ impl Handler for PacketTransmitter {
     }
 
     fn notify(&mut self, event_loop: &mut EventLoop<Self>, msg: Self::Message) {
-        self.socket.shutdown(Shutdown::Both);
+        let _ = self.socket.shutdown(Shutdown::Both);
         event_loop.shutdown();
     }
 }

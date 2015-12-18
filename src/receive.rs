@@ -123,6 +123,7 @@ impl Plugin for Receiver {
             self.client_time_map.insert(client_id, client_time + BUFFER_SIZE as u64);
         }
 
+        // TODO avoid this clone
         let client_time_map = self.client_time_map.clone();
         self.active_packets.retain(|&(ref client_id, ref packet)| {
             let client_time = client_time_map[client_id];
@@ -161,16 +162,17 @@ impl Handler for PacketReceiver {
                 println!("server wait");
                 match self.server.accept() {
                     Ok(Some(mut socket)) => {
-                        println!("server accept");
                         let tx = self.data_tx.clone();
                         let mut buf = [0; BYTE_BUFFER_SIZE];
                         let mut buf_pos = 0;
                         let client_id = self.client_id;
+                        println!("server accept client {}", client_id);
                         self.client_id += 1;
                         loop {
                             let res = socket.read(&mut buf[buf_pos..]);
                             match res {
                                 Ok(num_read) => {
+                                    //println!("server read {}", num_read);
                                     // if we got a length zero read, the connection is done.
                                     if num_read == 0 {
                                         println!("read zero bytes");
