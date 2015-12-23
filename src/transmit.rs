@@ -62,7 +62,6 @@ impl Transmitter {
 
 impl Plugin for Transmitter {
     fn run<'a>(&mut self, sample_count: usize, ports: &[&'a PortConnection<'a>]) {
-        println!("sample count {}", sample_count);
         let inputl = ports[0].unwrap_audio();
         let inputr = ports[1].unwrap_audio();
         let mut outputl = ports[2].unwrap_audio_mut();
