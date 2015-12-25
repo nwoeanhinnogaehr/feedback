@@ -9,7 +9,7 @@ use mio::tcp::TcpListener;
 use ladspa::{PluginDescriptor, Plugin, PortConnection};
 
 use super::BASE_PORT;
-use super::packet::{BUFFER_SIZE, BYTE_BUFFER_SIZE, Packet};
+use super::packet::{BYTE_BUFFER_SIZE, Packet};
 
 type ClientPacket = (u64, Packet);
 

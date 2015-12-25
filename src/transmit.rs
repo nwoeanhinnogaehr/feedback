@@ -45,7 +45,7 @@ impl Transmitter {
         thread::spawn(move || {
             let addr = format!("127.0.0.1:{}", BASE_PORT + channel).parse().unwrap();
             let client = TcpStream::connect(&addr).unwrap();
-            client.set_nodelay(true);
+            client.set_nodelay(true).unwrap();
             event_loop.register(&client, CLIENT).unwrap();
             event_loop.run(&mut PacketTransmitter {
                           socket: client,
@@ -56,7 +56,7 @@ impl Transmitter {
     }
 
     fn kill_client(&mut self) {
-        self.notify_tx.as_ref().unwrap().send(());
+        let _ = self.notify_tx.as_ref().unwrap().send(());
     }
 }
 
@@ -101,6 +101,7 @@ impl Plugin for Transmitter {
             }
         }
         if need_reboot {
+            println!("transmit failed, rebooting");
             self.kill_client();
             self.init_client();
         }
@@ -165,7 +166,7 @@ impl Handler for PacketTransmitter {
     }
 
     fn notify(&mut self, event_loop: &mut EventLoop<Self>, msg: Self::Message) {
-        self.socket.shutdown(Shutdown::Both);
+        let _ = self.socket.shutdown(Shutdown::Both);
         event_loop.shutdown();
     }
 }
