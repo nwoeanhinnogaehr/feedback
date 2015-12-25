@@ -45,7 +45,7 @@ impl Transmitter {
         thread::spawn(move || {
             let addr = format!("127.0.0.1:{}", BASE_PORT + channel).parse().unwrap();
             let client = TcpStream::connect(&addr).unwrap();
-            client.set_nodelay(true).unwrap();
+            client.set_nodelay(true);
             event_loop.register(&client, CLIENT).unwrap();
             event_loop.run(&mut PacketTransmitter {
                           socket: client,
@@ -69,14 +69,15 @@ impl Plugin for Transmitter {
 
         let channel = *ports[4].unwrap_control() as u16;
 
-        let mut need_reboot = false;
-
         if channel != self.channel {
             self.channel = channel;
             println!("set channel {}", self.channel);
-            need_reboot = true;
+            self.kill_client();
+            self.init_client();
+            return;
         }
 
+        let mut need_reboot = false;
         let mut i = 0;
         while i < sample_count {
             while self.lbuffer.len() < BUFFER_SIZE && i < sample_count {
