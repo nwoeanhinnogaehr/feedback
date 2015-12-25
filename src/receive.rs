@@ -120,7 +120,7 @@ impl Plugin for Receiver {
         }
         for client_id in read_clients {
             let client_time = self.client_time_map.get(&client_id).map(|x| *x).unwrap_or(0);
-            self.client_time_map.insert(client_id, client_time + BUFFER_SIZE as u64);
+            self.client_time_map.insert(client_id, client_time + sample_count as u64);
         }
 
         // TODO avoid this clone
