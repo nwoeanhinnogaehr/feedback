@@ -56,7 +56,7 @@ impl Transmitter {
     }
 
     fn kill_client(&mut self) {
-        let _ = self.notify_tx.as_ref().unwrap().send(());
+        self.notify_tx.as_ref().unwrap().send(());
     }
 }
 
@@ -165,7 +165,7 @@ impl Handler for PacketTransmitter {
     }
 
     fn notify(&mut self, event_loop: &mut EventLoop<Self>, msg: Self::Message) {
-        let _ = self.socket.shutdown(Shutdown::Both);
+        self.socket.shutdown(Shutdown::Both);
         event_loop.shutdown();
     }
 }
