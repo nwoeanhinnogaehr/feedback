@@ -4,7 +4,7 @@ use bincode::SizeLimit;
 use bincode::rustc_serialize::{encode, decode};
 
 pub const BUFFER_SIZE: usize = 1024;
-pub const BYTE_BUFFER_SIZE: usize = 8216; // data + data size + timestamp
+pub const BYTE_BUFFER_SIZE: usize = BUFFER_SIZE * 4 * 2 + 8 * 2 + 8; // data + data size + timestamp
 
 #[derive(RustcEncodable, RustcDecodable, Clone)]
 pub struct Packet {
