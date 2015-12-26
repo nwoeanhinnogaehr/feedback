@@ -6,6 +6,8 @@ use mio::*;
 use mio::tcp::{TcpStream, Shutdown};
 
 use ladspa::{PluginDescriptor, Plugin, PortConnection, Data};
+use ladspa::{Port, PortDescriptor};
+use ladspa::{PROP_NONE, HINT_INTEGER, DefaultValue};
 
 use super::BASE_PORT;
 use super::packet::{BUFFER_SIZE, BYTE_BUFFER_SIZE, Packet};
@@ -33,6 +35,46 @@ impl Transmitter {
             rbuffer: Vec::new(),
             time: 0,
         })
+    }
+
+    pub fn get_descriptor() -> PluginDescriptor {
+        PluginDescriptor {
+            unique_id: 5877,
+            label: "feedback_tx",
+            properties: PROP_NONE,
+            name: "Feedback Transmitter",
+            maker: "Noah Weninger",
+            copyright: "None",
+            ports: vec![Port {
+                            name: "Left Audio In",
+                            desc: PortDescriptor::AudioInput,
+                            ..Default::default()
+                        },
+                        Port {
+                            name: "Right Audio In",
+                            desc: PortDescriptor::AudioInput,
+                            ..Default::default()
+                        },
+                        Port {
+                            name: "Left Audio Out",
+                            desc: PortDescriptor::AudioOutput,
+                            ..Default::default()
+                        },
+                        Port {
+                            name: "Right Audio Out",
+                            desc: PortDescriptor::AudioOutput,
+                            ..Default::default()
+                        },
+                        Port {
+                            name: "Channel",
+                            desc: PortDescriptor::ControlInput,
+                            hint: Some(HINT_INTEGER),
+                            default: Some(DefaultValue::Value0),
+                            lower_bound: Some(0_f32),
+                            upper_bound: Some(255_f32),
+                        }],
+            new: Transmitter::new,
+        }
     }
 
     fn init_client(&mut self) {
