@@ -2,6 +2,7 @@ use std::thread;
 use std::sync::mpsc::{self, channel, TryRecvError};
 use std::io::{Read, ErrorKind};
 use std::collections::HashMap;
+use std::time::Duration;
 
 use mio::*;
 use mio::tcp::TcpListener;
@@ -108,6 +109,7 @@ impl Plugin for Receiver {
             outputl[i] = inputl[i];
             outputr[i] = inputr[i];
         }
+
         let mut read_clients = Vec::new();
         for &mut (ref client_id, ref mut packet) in &mut self.active_packets {
             let client_time = self.client_time_map.get(client_id).map(|x| *x).unwrap_or(0);
@@ -123,12 +125,19 @@ impl Plugin for Receiver {
             self.client_time_map.insert(client_id, client_time + sample_count as u64);
         }
 
-        // TODO avoid this clone
-        let client_time_map = self.client_time_map.clone();
-        self.active_packets.retain(|&(ref client_id, ref packet)| {
-            let client_time = client_time_map[client_id];
-            !packet.complete(client_time)
-        });
+        let mut i = 0;
+        while i < self.active_packets.len() {
+            let complete = {
+                let (ref client_id, ref packet) = self.active_packets[i];
+                let client_time = self.client_time_map[client_id];
+                packet.complete(client_time)
+            };
+            if complete {
+                self.active_packets.remove(i);
+            } else {
+                i += 1;
+            }
+        }
     }
 
     fn activate(&mut self) {
@@ -162,6 +171,7 @@ impl Handler for PacketReceiver {
                 println!("server wait");
                 match self.server.accept() {
                     Ok(Some(mut socket)) => {
+                        socket.set_nodelay(true).unwrap();
                         let tx = self.data_tx.clone();
                         let mut buf = [0; BYTE_BUFFER_SIZE];
                         let mut buf_pos = 0;
@@ -188,6 +198,8 @@ impl Handler for PacketReceiver {
                                 }
                                 Err(e) => {
                                     if e.kind() == ErrorKind::WouldBlock {
+                                        //TODO this is a quick hack to reduce CPU usage
+                                        thread::sleep(Duration::from_millis(10));
                                         continue;
                                     }
                                     panic!(e);
