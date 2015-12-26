@@ -258,7 +258,7 @@ impl Handler for PacketReceiver {
                                 Err(e) => {
                                     if e.kind() == ErrorKind::WouldBlock {
                                         //TODO this is a quick hack to reduce CPU usage
-                                        thread::sleep(Duration::from_millis(1));
+                                        thread::sleep(Duration::from_millis(10));
                                         continue;
                                     }
                                     panic!(e);
