@@ -75,6 +75,22 @@ impl Receiver {
                 default: Some(DefaultValue::Value0),
                 lower_bound: Some(0_f32),
                 upper_bound: Some(255_f32),
+            },
+            Port {
+                name: "Dry",
+                desc: PortDescriptor::ControlInput,
+                hint: None,
+                default: Some(DefaultValue::Value1),
+                lower_bound: Some(0_f32),
+                upper_bound: Some(1_f32),
+            },
+            Port {
+                name: "Recv",
+                desc: PortDescriptor::ControlInput,
+                hint: None,
+                default: Some(DefaultValue::Value1),
+                lower_bound: Some(0_f32),
+                upper_bound: Some(1_f32),
             }],
             new: Receiver::new,
         }
@@ -122,6 +138,8 @@ impl Plugin for Receiver {
         let mut outputr = ports[3].unwrap_audio_mut();
 
         let channel = *ports[4].unwrap_control() as u16;
+        let dry = ports[5].unwrap_control();
+        let wet = ports[6].unwrap_control();
 
         if channel != self.channel {
             self.channel = channel;
@@ -148,8 +166,8 @@ impl Plugin for Receiver {
         }
 
         for i in 0..sample_count {
-            outputl[i] = inputl[i];
-            outputr[i] = inputr[i];
+            outputl[i] = inputl[i]*(*dry);
+            outputr[i] = inputr[i]*(*dry);
         }
 
         let mut read_clients = Vec::new();
@@ -157,8 +175,8 @@ impl Plugin for Receiver {
             let client_time = self.client_time_map.get(client_id).map(|x| *x).unwrap_or(0);
             for i in 0..sample_count {
                 let (l, r) = packet.read(client_time + i as u64);
-                outputl[i] += l;
-                outputr[i] += r;
+                outputl[i] += l*(*wet);
+                outputr[i] += r*(*wet);
             }
             read_clients.push(*client_id);
         }

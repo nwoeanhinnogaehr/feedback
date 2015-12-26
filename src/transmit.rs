@@ -72,6 +72,22 @@ impl Transmitter {
                             default: Some(DefaultValue::Value0),
                             lower_bound: Some(0_f32),
                             upper_bound: Some(255_f32),
+                        },
+                        Port {
+                            name: "Dry",
+                            desc: PortDescriptor::ControlInput,
+                            hint: None,
+                            default: Some(DefaultValue::Value1),
+                            lower_bound: Some(0_f32),
+                            upper_bound: Some(1_f32),
+                        },
+                        Port {
+                            name: "Send",
+                            desc: PortDescriptor::ControlInput,
+                            hint: None,
+                            default: Some(DefaultValue::Value1),
+                            lower_bound: Some(0_f32),
+                            upper_bound: Some(1_f32),
                         }],
             new: Transmitter::new,
         }
@@ -110,6 +126,8 @@ impl Plugin for Transmitter {
         let mut outputr = ports[3].unwrap_audio_mut();
 
         let channel = *ports[4].unwrap_control() as u16;
+        let dry = ports[5].unwrap_control();
+        let wet = ports[6].unwrap_control();
 
         if channel != self.channel {
             self.channel = channel;
@@ -123,11 +141,11 @@ impl Plugin for Transmitter {
         let mut i = 0;
         while i < sample_count {
             while self.lbuffer.len() < BUFFER_SIZE && i < sample_count {
-                self.lbuffer.push(inputl[i]);
-                self.rbuffer.push(inputr[i]);
+                self.lbuffer.push(inputl[i]*(*wet));
+                self.rbuffer.push(inputr[i]*(*wet));
 
-                outputl[i] = inputl[i];
-                outputr[i] = inputr[i];
+                outputl[i] = inputl[i]*(*dry);
+                outputr[i] = inputr[i]*(*dry);
 
                 i += 1;
             }
