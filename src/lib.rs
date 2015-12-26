@@ -1,4 +1,4 @@
-#![feature(clone_from_slice)]
+#![feature(convert, clone_from_slice)]
 
 extern crate ladspa;
 extern crate mio;
