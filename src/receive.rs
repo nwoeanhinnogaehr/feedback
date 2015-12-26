@@ -111,7 +111,7 @@ impl Plugin for Receiver {
         }
 
         let mut read_clients = Vec::new();
-        for &mut (ref client_id, ref mut packet) in &mut self.active_packets {
+        for &(ref client_id, ref packet) in &self.active_packets {
             let client_time = self.client_time_map.get(client_id).map(|x| *x).unwrap_or(0);
             for i in 0..sample_count {
                 let (l, r) = packet.read(client_time + i as u64);
@@ -125,8 +125,9 @@ impl Plugin for Receiver {
             self.client_time_map.insert(client_id, client_time + sample_count as u64);
         }
 
-        let mut i = 0;
-        while i < self.active_packets.len() {
+        let mut i = self.active_packets.len();
+        while i > 0 {
+            i -= 1;
             let complete = {
                 let (ref client_id, ref packet) = self.active_packets[i];
                 let client_time = self.client_time_map[client_id];
@@ -134,8 +135,6 @@ impl Plugin for Receiver {
             };
             if complete {
                 self.active_packets.remove(i);
-            } else {
-                i += 1;
             }
         }
     }
@@ -199,7 +198,7 @@ impl Handler for PacketReceiver {
                                 Err(e) => {
                                     if e.kind() == ErrorKind::WouldBlock {
                                         //TODO this is a quick hack to reduce CPU usage
-                                        thread::sleep(Duration::from_millis(10));
+                                        thread::sleep(Duration::from_millis(1));
                                         continue;
                                     }
                                     panic!(e);
