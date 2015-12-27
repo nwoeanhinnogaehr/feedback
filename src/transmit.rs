@@ -1,6 +1,6 @@
 use std::thread;
 use std::sync::mpsc::{self, sync_channel};
-use std::io::Write;
+use std::io::{Write, ErrorKind};
 
 use mio::*;
 use mio::tcp::{TcpStream, Shutdown};
@@ -15,7 +15,6 @@ use super::packet::{BUFFER_SIZE, BYTE_BUFFER_SIZE, Packet};
 const CLIENT: Token = Token(1);
 
 pub struct Transmitter {
-    sample_rate: u64,
     channel: u16,
     data_tx: Option<mpsc::SyncSender<Packet>>,
     notify_tx: Option<Sender<<PacketTransmitter as Handler>::Message>>,
@@ -25,9 +24,8 @@ pub struct Transmitter {
 }
 
 impl Transmitter {
-    pub fn new(_: &PluginDescriptor, sample_rate: u64) -> Box<Plugin + Send> {
+    pub fn new(_: &PluginDescriptor, _: u64) -> Box<Plugin + Send> {
         Box::new(Transmitter {
-            sample_rate: sample_rate,
             channel: 0,
             data_tx: None,
             notify_tx: None,
@@ -194,7 +192,7 @@ impl Handler for PacketTransmitter {
         match token {
             CLIENT => {
                 println!("client accept");
-                loop {
+                'outer: loop {
                     assert!(events.is_writable());
                     let packet = match self.data_rx.recv() {
                         Ok(p) => p,
@@ -204,19 +202,30 @@ impl Handler for PacketTransmitter {
                             break;
                         }
                     };
-                    match self.socket.write(&packet.as_bytes()[..]) {
-                        Ok(num_written) => {
-                            //println!("client wrote {}", num_written);
-                            if num_written != BYTE_BUFFER_SIZE {
-                                println!("incorrect write size: {}", num_written);
-                                event_loop.shutdown();
-                                break;
+                    let mut write_offset = 0;
+                    loop {
+                        match self.socket.write(&packet.as_bytes()[write_offset..]) {
+                            Ok(num_written) => {
+                                //println!("client wrote {}", num_written);
+                                write_offset += num_written;
+                                assert!(write_offset <= BYTE_BUFFER_SIZE);
+                                if write_offset == BYTE_BUFFER_SIZE {
+                                    break;
+                                }
+                                if num_written == 0 {
+                                    println!("wrote zero bytes");
+                                    event_loop.shutdown();
+                                    break 'outer;
+                                }
                             }
-                        }
-                        Err(_) => {
-                            println!("err writing packet to network!");
-                            event_loop.shutdown();
-                            break;
+                            Err(e) => {
+                                if e.kind() == ErrorKind::WouldBlock {
+                                    continue;
+                                }
+                                println!("error writing to socket: {}", e);
+                                event_loop.shutdown();
+                                break 'outer;
+                            }
                         }
                     }
                 }
@@ -225,7 +234,7 @@ impl Handler for PacketTransmitter {
         }
     }
 
-    fn notify(&mut self, event_loop: &mut EventLoop<Self>, msg: Self::Message) {
+    fn notify(&mut self, event_loop: &mut EventLoop<Self>, _: Self::Message) {
         let _ = self.socket.shutdown(Shutdown::Both);
         event_loop.shutdown();
     }
