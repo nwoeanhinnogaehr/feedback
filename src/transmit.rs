@@ -114,6 +114,20 @@ impl Transmitter {
     fn kill_client(&mut self) {
         let _ = self.notify_tx.as_ref().unwrap().send(());
     }
+
+    fn restart_client(&mut self) {
+        self.kill_client();
+        self.init_client();
+    }
+
+    fn set_channel(&mut self, channel: u16) {
+        if channel != self.channel {
+            self.channel = channel;
+            println!("set channel {}", self.channel);
+            self.restart_client();
+            return;
+        }
+    }
 }
 
 impl Plugin for Transmitter {
@@ -127,13 +141,7 @@ impl Plugin for Transmitter {
         let dry = ports[5].unwrap_control();
         let wet = ports[6].unwrap_control();
 
-        if channel != self.channel {
-            self.channel = channel;
-            println!("set channel {}", self.channel);
-            self.kill_client();
-            self.init_client();
-            return;
-        }
+        self.set_channel(channel);
 
         let mut need_reboot = false;
         let mut i = 0;
@@ -160,8 +168,7 @@ impl Plugin for Transmitter {
         }
         if need_reboot {
             println!("transmit failed, rebooting");
-            self.kill_client();
-            self.init_client();
+            self.restart_client();
         }
     }
 
