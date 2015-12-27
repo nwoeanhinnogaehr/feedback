@@ -48,49 +48,49 @@ impl Receiver {
             maker: "Noah Weninger",
             copyright: "None",
             ports: vec![Port {
-                name: "Left Audio In",
-                desc: PortDescriptor::AudioInput,
-                ..Default::default()
-            },
-            Port {
-                name: "Right Audio In",
-                desc: PortDescriptor::AudioInput,
-                ..Default::default()
-            },
-            Port {
-                name: "Left Audio Out",
-                desc: PortDescriptor::AudioOutput,
-                ..Default::default()
-            },
-            Port {
-                name: "Right Audio Out",
-                desc: PortDescriptor::AudioOutput,
-                ..Default::default()
-            },
-            Port {
-                name: "Channel",
-                desc: PortDescriptor::ControlInput,
-                hint: Some(HINT_INTEGER),
-                default: Some(DefaultValue::Value0),
-                lower_bound: Some(0_f32),
-                upper_bound: Some(255_f32),
-            },
-            Port {
-                name: "Dry",
-                desc: PortDescriptor::ControlInput,
-                hint: None,
-                default: Some(DefaultValue::Value1),
-                lower_bound: Some(0_f32),
-                upper_bound: Some(1_f32),
-            },
-            Port {
-                name: "Recv",
-                desc: PortDescriptor::ControlInput,
-                hint: None,
-                default: Some(DefaultValue::Value1),
-                lower_bound: Some(0_f32),
-                upper_bound: Some(1_f32),
-            }],
+                            name: "Left Audio In",
+                            desc: PortDescriptor::AudioInput,
+                            ..Default::default()
+                        },
+                        Port {
+                            name: "Right Audio In",
+                            desc: PortDescriptor::AudioInput,
+                            ..Default::default()
+                        },
+                        Port {
+                            name: "Left Audio Out",
+                            desc: PortDescriptor::AudioOutput,
+                            ..Default::default()
+                        },
+                        Port {
+                            name: "Right Audio Out",
+                            desc: PortDescriptor::AudioOutput,
+                            ..Default::default()
+                        },
+                        Port {
+                            name: "Channel",
+                            desc: PortDescriptor::ControlInput,
+                            hint: Some(HINT_INTEGER),
+                            default: Some(DefaultValue::Value0),
+                            lower_bound: Some(0_f32),
+                            upper_bound: Some(255_f32),
+                        },
+                        Port {
+                            name: "Dry",
+                            desc: PortDescriptor::ControlInput,
+                            hint: None,
+                            default: Some(DefaultValue::Value1),
+                            lower_bound: Some(0_f32),
+                            upper_bound: Some(1_f32),
+                        },
+                        Port {
+                            name: "Recv",
+                            desc: PortDescriptor::ControlInput,
+                            hint: None,
+                            default: Some(DefaultValue::Value1),
+                            lower_bound: Some(0_f32),
+                            upper_bound: Some(1_f32),
+                        }],
             new: Receiver::new,
         }
     }
@@ -221,8 +221,8 @@ impl Plugin for Receiver {
         self.recv_packets();
 
         for i in 0..sample_count {
-            outputl[i] = inputl[i]*(*dry);
-            outputr[i] = inputr[i]*(*dry);
+            outputl[i] = inputl[i] * (*dry);
+            outputr[i] = inputr[i] * (*dry);
         }
 
         if !self.have_enough_data(sample_count) {
@@ -234,8 +234,8 @@ impl Plugin for Receiver {
             let client_time = self.get_client_time(client_id);
             for i in 0..sample_count {
                 let (l, r) = packet.read(client_time + i as u64);
-                outputl[i] += l*(*wet);
-                outputr[i] += r*(*wet);
+                outputl[i] += l * (*wet);
+                outputr[i] += r * (*wet);
             }
             read_clients.push(client_id);
         }
@@ -289,7 +289,7 @@ impl Handler for PacketReceiver {
                                 let res = socket.read(&mut buf[buf_pos..]);
                                 match res {
                                     Ok(num_read) => {
-                                        //println!("server read {}", num_read);
+                                        // println!("server read {}", num_read);
                                         // if we got a length zero read, the connection is done.
                                         if num_read == 0 {
                                             println!("read zero bytes");
@@ -305,7 +305,7 @@ impl Handler for PacketReceiver {
                                     }
                                     Err(e) => {
                                         if e.kind() == ErrorKind::WouldBlock {
-                                            //TODO this is a quick hack to reduce CPU usage
+                                            // TODO this is a quick hack to reduce CPU usage
                                             thread::sleep(Duration::from_millis(10));
                                             continue;
                                         }

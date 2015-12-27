@@ -147,11 +147,11 @@ impl Plugin for Transmitter {
         let mut i = 0;
         while i < sample_count {
             while self.lbuffer.len() < BUFFER_SIZE && i < sample_count {
-                self.lbuffer.push(inputl[i]*(*wet));
-                self.rbuffer.push(inputr[i]*(*wet));
+                self.lbuffer.push(inputl[i] * (*wet));
+                self.rbuffer.push(inputr[i] * (*wet));
 
-                outputl[i] = inputl[i]*(*dry);
-                outputr[i] = inputr[i]*(*dry);
+                outputl[i] = inputl[i] * (*dry);
+                outputr[i] = inputr[i] * (*dry);
 
                 i += 1;
             }
@@ -213,7 +213,7 @@ impl Handler for PacketTransmitter {
                     loop {
                         match self.socket.write(&packet.as_bytes()[write_offset..]) {
                             Ok(num_written) => {
-                                //println!("client wrote {}", num_written);
+                                // println!("client wrote {}", num_written);
                                 write_offset += num_written;
                                 assert!(write_offset <= BYTE_BUFFER_SIZE);
                                 if write_offset == BYTE_BUFFER_SIZE {
