@@ -164,6 +164,10 @@ impl Receiver {
         self.client_time_map.get(&client_id).map(|x| *x).unwrap_or(0)
     }
 
+    fn set_client_time(&mut self, client_id: u64, time: u64) {
+        self.client_time_map.insert(client_id, time);
+    }
+
     fn prune_packets(&mut self) {
         let mut i = self.active_packets.len();
         while i > 0 {
@@ -177,6 +181,28 @@ impl Receiver {
                 self.active_packets.remove(i);
             }
         }
+    }
+
+    fn have_enough_data(&self, sample_count: usize) -> bool {
+        let mut client_availibility = HashMap::new();
+        for &(client_id, _) in &self.active_packets {
+            let availibility = client_availibility.get(&client_id).map(|x| *x).unwrap_or(0);
+            client_availibility.insert(client_id, availibility + 1);
+        }
+
+        if client_availibility.len() > 0 {
+            let mut min_availibility = usize::max_value();
+            for (_, &availibility) in &client_availibility {
+                if availibility < min_availibility {
+                    min_availibility = availibility;
+                }
+            }
+
+            return min_availibility * BUFFER_SIZE >= sample_count;
+        }
+
+        // no packets, don't waste time
+        return false;
     }
 }
 
@@ -199,23 +225,8 @@ impl Plugin for Receiver {
             outputr[i] = inputr[i]*(*dry);
         }
 
-        let mut client_availibility = HashMap::new();
-        for &(client_id, _) in &self.active_packets {
-            let availibility = client_availibility.get(&client_id).map(|x| *x).unwrap_or(0);
-            client_availibility.insert(client_id, availibility + 1);
-        }
-
-        if client_availibility.len() > 0 {
-            let mut min_availibility = usize::max_value();
-            for (_, &availibility) in &client_availibility {
-                if availibility < min_availibility {
-                    min_availibility = availibility;
-                }
-            }
-
-            if min_availibility * BUFFER_SIZE < sample_count {
-                return;
-            }
+        if !self.have_enough_data(sample_count) {
+            return;
         }
 
         let mut read_clients = Vec::new();
@@ -230,7 +241,7 @@ impl Plugin for Receiver {
         }
         for client_id in read_clients {
             let client_time = self.get_client_time(client_id);
-            self.client_time_map.insert(client_id, client_time + sample_count as u64);
+            self.set_client_time(client_id, client_time + sample_count as u64);
         }
         self.prune_packets();
     }
