@@ -1,5 +1,5 @@
 #![feature(clone_from_slice)]
-#[cfg_attr(test, feature(convert))]
+#![cfg_attr(test, feature(convert))]
 
 extern crate ladspa;
 extern crate mio;
