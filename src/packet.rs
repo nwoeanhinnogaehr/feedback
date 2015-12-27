@@ -34,7 +34,9 @@ impl Packet {
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
-        encode(self, SizeLimit::Infinite).unwrap()
+        let bytes = encode(self, SizeLimit::Infinite).unwrap();
+        assert_eq!(bytes.len(), BYTE_BUFFER_SIZE);
+        bytes
     }
 
     pub fn get_ldata(&self) -> &[Data] {
@@ -61,6 +63,10 @@ impl Packet {
 
     pub fn complete(&self, time: u64) -> bool {
         time >= self.timestamp + BUFFER_SIZE as u64
+    }
+
+    pub fn get_timestamp(&self) -> u64 {
+        self.timestamp
     }
 }
 
